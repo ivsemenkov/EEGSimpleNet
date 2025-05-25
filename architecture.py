@@ -1,6 +1,8 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from scipy.signal import welch
 
 
 def compute_fft(data, sampling_rate):
@@ -161,7 +163,7 @@ class SpatioTemporalBlock(nn.Module):
 
         spatial_patterns = torch.stack(spatial_patterns, dim=0)
 
-        return spatial_patterns
+        return spatial_patterns.detach().cpu().numpy()
     
     def get_temporal_patterns(self, spatial_filters, temporal_filters, eeg_data, eeg_sampling_rate):
         # Based on https://github.com/kovalalvi/beira
@@ -177,22 +179,23 @@ class SpatioTemporalBlock(nn.Module):
             spatially_filtered_eeg = spatial_filter @ eeg_data
             # spatially_filtered_eeg: (n_samples, )
             
-            _, fft_kernel = compute_fft(temporal_filter, eeg_sampling_rate)
-            _, fft_signal = compute_fft(spatially_filtered_eeg, eeg_sampling_rate)
-            fft_kernel =  torch.abs(fft_kernel)
-            fft_signal = torch.abs(fft_signal)
-            
-            fft_signal_interp = F.interpolate(
-                fft_signal.reshape(1, 1, -1),
-                size=fft_kernel.shape[0], mode='nearest'
-            ).squeeze()
-            
-            pattern = fft_signal_interp * fft_kernel
-            
+            fft_kernel = np.fft.rfft(temporal_filter.detach().cpu().numpy(), n=eeg_sampling_rate * 2)
+            f_welch, Pxx_welch = welch(
+                spatially_filtered_eeg.detach().cpu().numpy(), fs=eeg_sampling_rate,
+                window='hann',
+                nperseg=eeg_sampling_rate * 2,
+                noverlap=eeg_sampling_rate,
+                nfft=eeg_sampling_rate * 2,
+                scaling='density'
+            )
+            assert Pxx_welch.shape[0] == 1, Pxx_welch.shape
+            Pxx_welch = Pxx_welch[0, :]
+            pattern = np.abs(fft_kernel * Pxx_welch)
+
             temporal_patterns.append(pattern)
             
-        fft_freqs, fft_kernel = compute_fft(temporal_filters[-1, :, :].squeeze(), eeg_sampling_rate)
-        return fft_freqs, torch.stack(temporal_patterns, dim=0)
+        fft_freqs = np.fft.rfftfreq(n=eeg_sampling_rate * 2, d=1/eeg_sampling_rate)
+        return fft_freqs, np.stack(temporal_patterns, axis=0)
     
     def calculate_patterns(self, eeg_data, eeg_sampling_rate):
         # eeg_data: (n_eeg_channels, n_samples)
