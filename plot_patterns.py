@@ -1,4 +1,3 @@
-import math
 from pathlib import Path
 from typing import Optional
 
@@ -22,7 +21,7 @@ def plot_topographies(
     )
 
     n_patterns = spatial_patterns.shape[1]
-    n_cols = min(6, math.floor(math.sqrt(n_patterns)))
+    n_cols = min(10, n_patterns)
     n_rows = n_patterns // n_cols
     if (n_patterns % n_cols) != 0:
         n_rows += 1
@@ -49,7 +48,7 @@ def plot_temporal_patterns(
         fft_freqs: np.ndarray, temporal_patterns: np.ndarray, save_path: Optional[str] = None
     ) -> plt.Figure:
     n_patterns = temporal_patterns.shape[0]
-    n_cols = min(6, math.floor(math.sqrt(n_patterns)))
+    n_cols = min(3, n_patterns)
     n_rows = n_patterns // n_cols
     if (n_patterns % n_cols) != 0:
         n_rows += 1
