@@ -228,23 +228,21 @@ class DecimatePooling(nn.Module):
     def forward(self, x):
         # x: (batch_size, n_branches, time_length)
         return x[:, :, ::self.decimation_factor]
+    
 
-
-class EEGSimpleNet(nn.Module):
+class EnvelopeDetector(nn.Module):
     def __init__(
             self, 
-            n_eeg_channels, n_output, n_branches, window_size,
+            n_eeg_channels, n_branches, window_size,
             band_pass_length, low_pass_length, 
             spatial_bias=True, band_pass_bias=False, low_pass_bias=True, 
             spatial_batch_norm=True, band_pass_batch_norm=True, low_pass_batch_norm=True,
             band_pass_nonlinearity='abs', low_pass_nonlinearity='relu',
             padding='same',
-            pooling_kernel=None, pooling_type=None,
-            dropout_p=None
+            pooling_kernel=None, pooling_type=None
         ):
         super().__init__()
         self.n_eeg_channels = n_eeg_channels
-        self.n_output = n_output
         self.n_branches = n_branches
         self.band_pass_length = band_pass_length
         self.low_pass_length = low_pass_length
@@ -255,7 +253,6 @@ class EEGSimpleNet(nn.Module):
         self.padding = padding
         self.pooling_kernel = pooling_kernel
         self.pooling_type = pooling_type
-        self.dropout_p = dropout_p
 
         self.spatio_temporal_block = SpatioTemporalBlock(
             n_eeg_channels=n_eeg_channels, 
@@ -292,18 +289,64 @@ class EEGSimpleNet(nn.Module):
         
         self.output_length = output_length
 
-        if dropout_p is not None:
-            self.dropout = nn.Dropout(p=dropout_p)
-        
-        self.flatten = nn.Flatten(start_dim=1)
-        self.output_layer = nn.Linear(output_length * n_branches, n_output)
-
     def forward(self, x):
         # x: (batch_size, n_eeg_channels, window_size)
         spatio_temporal_out = self.spatio_temporal_block(x)
         low_pass_out = self.low_pass_filter(spatio_temporal_out)
         if self.pooling_type is not None:
             low_pass_out = self.pooling(low_pass_out)
+        # low_pass_out: (batch_size, n_branches, output_length)
+        return low_pass_out
+
+
+class EEGSimpleNet(nn.Module):
+    def __init__(
+            self, 
+            n_eeg_channels, n_output, n_branches, window_size,
+            band_pass_length, low_pass_length, 
+            spatial_bias=True, band_pass_bias=False, low_pass_bias=True, 
+            spatial_batch_norm=True, band_pass_batch_norm=True, low_pass_batch_norm=True,
+            band_pass_nonlinearity='abs', low_pass_nonlinearity='relu',
+            padding='same',
+            pooling_kernel=None, pooling_type=None,
+            dropout_p=None
+        ):
+        super().__init__()
+        self.n_eeg_channels = n_eeg_channels
+        self.n_output = n_output
+        self.n_branches = n_branches
+        self.band_pass_length = band_pass_length
+        self.low_pass_length = low_pass_length
+        self.spatial_bias = spatial_bias
+        self.band_pass_bias = band_pass_bias
+        self.low_pass_bias = low_pass_bias
+        self.spatial_batch_norm = spatial_batch_norm
+        self.padding = padding
+        self.pooling_kernel = pooling_kernel
+        self.pooling_type = pooling_type
+        self.dropout_p = dropout_p
+
+        self.envelope_detector = EnvelopeDetector(
+            n_eeg_channels=n_eeg_channels, n_branches=n_branches, window_size=window_size, 
+            band_pass_length=band_pass_length, low_pass_length=low_pass_length, 
+            spatial_bias=spatial_bias, band_pass_bias=band_pass_bias, 
+            low_pass_bias=low_pass_bias, spatial_batch_norm=spatial_batch_norm, 
+            band_pass_batch_norm=band_pass_batch_norm, 
+            low_pass_batch_norm=low_pass_batch_norm, 
+            band_pass_nonlinearity=band_pass_nonlinearity, 
+            low_pass_nonlinearity=low_pass_nonlinearity, 
+            padding=padding, pooling_kernel=pooling_kernel, pooling_type=pooling_type
+        )
+
+        if dropout_p is not None:
+            self.dropout = nn.Dropout(p=dropout_p)
+        
+        self.flatten = nn.Flatten(start_dim=1)
+        self.output_layer = nn.Linear(self.envelope_detector.output_length * n_branches, n_output)
+
+    def forward(self, x):
+        # x: (batch_size, n_eeg_channels, window_size)
+        low_pass_out = self.envelope_detector(x)
         # low_pass_out: (batch_size, n_branches, output_length)
         low_pass_out = self.flatten(low_pass_out)
         if self.dropout_p is not None:
