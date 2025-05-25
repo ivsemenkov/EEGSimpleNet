@@ -188,8 +188,6 @@ class SpatioTemporalBlock(nn.Module):
                 nfft=eeg_sampling_rate * 2,
                 scaling='density'
             )
-            assert Pxx_welch.shape[0] == 1, Pxx_welch.shape
-            Pxx_welch = Pxx_welch[0, :]
             pattern = np.abs(fft_kernel * Pxx_welch)
 
             temporal_patterns.append(pattern)
