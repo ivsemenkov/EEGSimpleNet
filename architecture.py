@@ -42,6 +42,9 @@ class SpatialFilter(nn.Module):
 
 class TemporalFilter(nn.Module):
     def __init__(self, n_branches, filter_length, bias, nonlinearity_kind, apply_batchnorm=True, padding='same'):
+        """
+        It is highly recommended to use other, more classic nonlinearities instead of 'abs' for better stability and convergence
+        """
         super().__init__()
         self.n_branches = n_branches
         self.filter_length = filter_length
@@ -100,6 +103,10 @@ class SpatioTemporalBlock(nn.Module):
             temporal_nonlinearity='abs',
             padding='same'
         ):
+        """
+        By default temporal_nonlinearity is 'abs' because it was like this in the original paper. 
+        However, it is highly recommended to use other, more classic nonlinearities for better stability and convergence
+        """
         super().__init__()
         self.n_eeg_channels = n_eeg_channels
         self.n_branches = n_branches
@@ -242,6 +249,10 @@ class EnvelopeDetector(nn.Module):
             padding='same',
             pooling_kernel=None, pooling_type=None
         ):
+        """
+        By default band_pass_nonlinearity is 'abs' because it was like this in the original paper. 
+        However, it is highly recommended to use other, more classic nonlinearities for better stability and convergence
+        """
         super().__init__()
         self.n_eeg_channels = n_eeg_channels
         self.n_branches = n_branches
@@ -312,6 +323,10 @@ class EEGSimpleNet(nn.Module):
             pooling_kernel=None, pooling_type=None,
             dropout_p=None
         ):
+        """
+        By default band_pass_nonlinearity is 'abs' because it was like this in the original paper. 
+        However, it is highly recommended to use other, more classic nonlinearities for better stability and convergence
+        """
         super().__init__()
         self.n_eeg_channels = n_eeg_channels
         self.n_output = n_output
