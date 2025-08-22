@@ -67,6 +67,8 @@ class TemporalFilter(nn.Module):
 
         if nonlinearity_kind == 'relu':
             self.nonlinearity = nn.ReLU()
+        elif nonlinearity_kind == 'gelu':
+            self.nonlinearity = nn.GELU()
         elif nonlinearity_kind == 'abs':
             self.nonlinearity = nn.LeakyReLU(negative_slope=-1)
         elif nonlinearity_kind is None:
